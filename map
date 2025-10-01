@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USA Map - Colored States</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: #f5f5f5;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            text-align: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+        #map {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            width: 100%;
+            height: 600px;
+        }
+        .state {
+            stroke: #333;
+            stroke-width: 1;
+            transition: opacity 0.2s;
+        }
+        .state:hover {
+            opacity: 0.7;
+            cursor: pointer;
+        }
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+            pointer-events: none;
+            display: none;
+            z-index: 1000;
+        }
+        .tooltip h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
+        .tooltip p {
+            margin: 0;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>USA Map - Regional Groups</h1>
+        <svg id="map" viewBox="0 0 960 600" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="tooltip" id="tooltip"></div>
+    </div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+    <script>
+        const stateColors = {
+            // Light blue
+            'New York': '#ADD8E6', 'New Jersey': '#ADD8E6', 'Massachusetts': '#ADD8E6',
+            'Rhode Island': '#ADD8E6', 'Connecticut': '#ADD8E6', 'Vermont': '#ADD8E6',
+            'New Hampshire': '#ADD8E6', 'Maine': '#ADD8E6',
+            // Light green
+            'Pennsylvania': '#90EE90', 'Delaware': '#90EE90', 'Maryland': '#90EE90',
+            'Virginia': '#90EE90', 'West Virginia': '#90EE90', 'District of Columbia': '#90EE90',
+            'Kentucky': '#90EE90', 'Tennessee': '#90EE90',
+            // Light yellow
+            'North Carolina': '#FFFFE0', 'South Carolina': '#FFFFE0', 'Georgia': '#FFFFE0',
+            'Florida': '#FFFFE0', 'Alabama': '#FFFFE0', 'Mississippi': '#FFFFE0',
+            // Light red
+            'Ohio': '#FFB6C1', 'Michigan': '#FFB6C1', 'Indiana': '#FFB6C1',
+            'Illinois': '#FFB6C1', 'Wisconsin': '#FFB6C1', 'Minnesota': '#FFB6C1',
+            'Iowa': '#FFB6C1', 'Missouri': '#FFB6C1',
+            // Light grey
+            'Texas': '#D3D3D3', 'Oklahoma': '#D3D3D3', 'Arkansas': '#D3D3D3',
+            'Louisiana': '#D3D3D3', 'Kansas': '#D3D3D3', 'Nebraska': '#D3D3D3',
+            'Colorado': '#D3D3D3', 'New Mexico': '#D3D3D3',
+            // Light orange
+            'California': '#FFD8B1', 'Oregon': '#FFD8B1', 'Washington': '#FFD8B1',
+            'Nevada': '#FFD8B1', 'Arizona': '#FFD8B1',
+            'Utah': '#FFD8B1', 'Idaho': '#FFD8B1',
+            'Montana': '#FFD8B1', 'Wyoming': '#FFD8B1', 'North Dakota': '#FFD8B1',
+            'South Dakota': '#FFD8B1', 'Alaska': '#FFD8B1', 'Hawaii': '#FFD8B1'
+        };
+
+        const stateCities = {
+            'Alabama': ['Birmingham', 'Montgomery', 'Mobile'],
+            'Alaska': ['Anchorage', 'Fairbanks', 'Juneau'],
+            'Arizona': ['Phoenix', 'Tucson', 'Mesa'],
+            'Arkansas': ['Little Rock', 'Fort Smith', 'Fayetteville'],
+            'California': ['Los Angeles', 'San Diego', 'San Jose'],
+            'Colorado': ['Denver', 'Colorado Springs', 'Aurora'],
+            'Connecticut': ['Bridgeport', 'New Haven', 'Stamford'],
+            'Delaware': ['Wilmington', 'Dover', 'Newark'],
+            'Florida': ['Jacksonville', 'Miami', 'Tampa'],
+            'Georgia': ['Atlanta', 'Augusta', 'Columbus'],
+            'Hawaii': ['Honolulu', 'Pearl City', 'Hilo'],
+            'Idaho': ['Boise', 'Meridian', 'Nampa'],
+            'Illinois': ['Chicago', 'Aurora', 'Naperville'],
+            'Indiana': ['Indianapolis', 'Fort Wayne', 'Evansville'],
+            'Iowa': ['Des Moines', 'Cedar Rapids', 'Davenport'],
+            'Kansas': ['Wichita', 'Overland Park', 'Kansas City'],
+            'Kentucky': ['Louisville', 'Lexington', 'Bowling Green'],
+            'Louisiana': ['New Orleans', 'Baton Rouge', 'Shreveport'],
+            'Maine': ['Portland', 'Lewiston', 'Bangor'],
+            'Maryland': ['Baltimore', 'Columbia', 'Germantown'],
+            'Massachusetts': ['Boston', 'Worcester', 'Springfield'],
+            'Michigan': ['Detroit', 'Grand Rapids', 'Warren'],
+            'Minnesota': ['Minneapolis', 'St. Paul', 'Rochester'],
+            'Mississippi': ['Jackson', 'Gulfport', 'Southaven'],
+            'Missouri': ['Kansas City', 'St. Louis', 'Springfield'],
+            'Montana': ['Billings', 'Missoula', 'Great Falls'],
+            'Nebraska': ['Omaha', 'Lincoln', 'Bellevue'],
+            'Nevada': ['Las Vegas', 'Henderson', 'Reno'],
+            'New Hampshire': ['Manchester', 'Nashua', 'Concord'],
+            'New Jersey': ['Newark', 'Jersey City', 'Paterson'],
+            'New Mexico': ['Albuquerque', 'Las Cruces', 'Rio Rancho'],
+            'New York': ['New York City', 'Buffalo', 'Rochester'],
+            'North Carolina': ['Charlotte', 'Raleigh', 'Greensboro'],
+            'North Dakota': ['Fargo', 'Bismarck', 'Grand Forks'],
+            'Ohio': ['Columbus', 'Cleveland', 'Cincinnati'],
+            'Oklahoma': ['Oklahoma City', 'Tulsa', 'Norman'],
+            'Oregon': ['Portland', 'Salem', 'Eugene'],
+            'Pennsylvania': ['Philadelphia', 'Pittsburgh', 'Allentown'],
+            'Rhode Island': ['Providence', 'Warwick', 'Cranston'],
+            'South Carolina': ['Columbia', 'Charleston', 'North Charleston'],
+            'South Dakota': ['Sioux Falls', 'Rapid City', 'Aberdeen'],
+            'Tennessee': ['Nashville', 'Memphis', 'Knoxville'],
+            'Texas': ['Houston', 'San Antonio', 'Dallas'],
+            'Utah': ['Salt Lake City', 'West Valley City', 'Provo'],
+            'Vermont': ['Burlington', 'South Burlington', 'Rutland'],
+            'Virginia': ['Virginia Beach', 'Norfolk', 'Chesapeake'],
+            'Washington': ['Seattle', 'Spokane', 'Tacoma'],
+            'West Virginia': ['Charleston', 'Huntington', 'Morgantown'],
+            'Wisconsin': ['Milwaukee', 'Madison', 'Green Bay'],
+            'Wyoming': ['Cheyenne', 'Casper', 'Laramie'],
+            'District of Columbia': ['Washington D.C.', '', '']
+        };
+
+        const svg = d3.select("#map");
+        const tooltip = d3.select("#tooltip");
+        const width = 960;
+        const height = 600;
+
+        const projection = d3.geoAlbersUsa()
+            .scale(1280)
+            .translate([width / 2, height / 2]);
+
+        const path = d3.geoPath().projection(projection);
+
+        d3.json("https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json").then(us => {
+            svg.append("g")
+                .selectAll("path")
+                .data(topojson.feature(us, us.objects.states).features)
+                .enter().append("path")
+                .attr("class", "state")
+                .attr("d", path)
+                .attr("fill", d => stateColors[d.properties.name] || '#ffffff')
+                .on("mouseover", function(event, d) {
+                    const cities = stateCities[d.properties.name] || [];
+                    const cityList = cities.filter(c => c).join(', ');
+                    tooltip
+                        .style("display", "block")
+                        .html(`<h3>${d.properties.name}</h3><p>Largest Cities: ${cityList}</p>`);
+                })
+                .on("mousemove", function(event) {
+                    tooltip
+                        .style("left", (event.pageX + 10) + "px")
+                        .style("top", (event.pageY - 30) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("display", "none");
+                });
+        });
+    </script>
+</body>
+</html>
